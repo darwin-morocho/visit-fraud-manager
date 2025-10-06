@@ -33,6 +33,9 @@ class VisitsFraudManager(
     }
 
     fun recordVisit(userId: String) {
+        if(userId.startsWith("employee_")) {
+            return
+        }
         visits[userId] = System.currentTimeMillis()
     }
 
@@ -42,6 +45,11 @@ class VisitsFraudManager(
     }
 
     fun hasRecentVisit(userId: String): Boolean {
+
+        if(userId.startsWith("employee_")) {
+            return false
+        }
+
         val lastVisit = visits[userId] ?: return false
         val difference = (System.currentTimeMillis() - lastVisit).milliseconds
         return difference <= interval
