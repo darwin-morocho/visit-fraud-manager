@@ -24,6 +24,8 @@ class VisitsFraudManager(
 
     var isUsingMinInterval = interval == minInterval
 
+    var enabled = interval.inWholeSeconds > 1L
+
     init {
         if (interval.inWholeSeconds < 60L) {
             interval = minInterval
@@ -33,20 +35,30 @@ class VisitsFraudManager(
     }
 
     fun recordVisit(userId: String) {
-        if(userId.startsWith("employee_")) {
+        if (!enabled) {
+            return
+        }
+
+        if (userId.startsWith("employee_")) {
             return
         }
         visits[userId] = System.currentTimeMillis()
     }
 
     fun removeVisit(userId: String) {
+        if (!enabled) {
+            return
+        }
         visits.remove(userId)
         notifications.remove(userId)
     }
 
     fun hasRecentVisit(userId: String): Boolean {
+        if (!enabled) {
+            return false
+        }
 
-        if(userId.startsWith("employee_")) {
+        if (userId.startsWith("employee_")) {
             return false
         }
 
@@ -56,6 +68,9 @@ class VisitsFraudManager(
     }
 
     fun recordNotification(userId: String) {
+        if (!enabled) {
+            return
+        }
         notifications[userId] = System.currentTimeMillis()
     }
 
@@ -81,6 +96,13 @@ class VisitsFraudManager(
 
     fun setInterval(newInterval: Duration) {
         if (interval == newInterval) {
+            return
+        }
+
+        if (!enabled) {
+            visits.clear()
+            notifications.clear()
+            purgeJob?.cancel()
             return
         }
 
