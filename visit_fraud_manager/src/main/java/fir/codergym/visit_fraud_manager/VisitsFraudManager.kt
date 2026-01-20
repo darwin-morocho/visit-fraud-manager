@@ -99,7 +99,8 @@ class VisitsFraudManager(
             return
         }
 
-        if (!enabled) {
+        if (newInterval.inWholeMinutes <= 1L) {
+            interval = Duration.ZERO
             visits.clear()
             notifications.clear()
             purgeJob?.cancel()
