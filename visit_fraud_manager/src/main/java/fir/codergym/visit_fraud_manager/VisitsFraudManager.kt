@@ -10,6 +10,10 @@ import kotlin.time.Duration.Companion.seconds
 
 val minInterval = 15.seconds
 
+private fun String.isBiometricWorkerId(): Boolean {
+    return startsWith("worker:") || startsWith("employee_")
+}
+
 class VisitsFraudManager(
     private var interval: Duration,
     private val notificationDelay: Duration,
@@ -27,11 +31,16 @@ class VisitsFraudManager(
     var enabled = interval.inWholeSeconds > 1L
 
     init {
+        val shouldEnable = interval > 0.seconds
         if (interval.inWholeSeconds < 60L) {
             interval = minInterval
         }
+        enabled = shouldEnable
+        isUsingMinInterval = shouldEnable && interval == minInterval
         lifecycle?.addObserver(this)
-        startPurgeTimer()
+        if (enabled) {
+            startPurgeTimer()
+        }
     }
 
     fun recordVisit(userId: String) {
@@ -39,7 +48,7 @@ class VisitsFraudManager(
             return
         }
 
-        if (userId.startsWith("employee_")) {
+        if (userId.isBiometricWorkerId()) {
             return
         }
         visits[userId] = System.currentTimeMillis()
@@ -58,7 +67,7 @@ class VisitsFraudManager(
             return false
         }
 
-        if (userId.startsWith("employee_")) {
+        if (userId.isBiometricWorkerId()) {
             return false
         }
 
@@ -95,20 +104,25 @@ class VisitsFraudManager(
     }
 
     fun setInterval(newInterval: Duration) {
-        if (interval == newInterval) {
-            return
-        }
-
-        if (newInterval.inWholeMinutes <= 1L) {
-            interval = Duration.ZERO
-            visits.clear()
-            notifications.clear()
-            purgeJob?.cancel()
+        val shouldEnable = newInterval > 0.seconds
+        if (interval == newInterval && enabled == shouldEnable) {
             return
         }
 
         purgeJob?.cancel()
+
+        if (!shouldEnable) {
+            interval = 0.seconds
+            enabled = false
+            isUsingMinInterval = false
+            visits.clear()
+            notifications.clear()
+            return
+        }
+
+        enabled = true
         interval = if (newInterval.inWholeSeconds < 60L) minInterval else newInterval
+        isUsingMinInterval = interval == minInterval
         startPurgeTimer()
     }
 
